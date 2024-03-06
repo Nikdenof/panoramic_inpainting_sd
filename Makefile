@@ -1,34 +1,42 @@
-# Also create .virtualenvs for panoramic_inpainting_sd
+SHELL := /bin/bash
 
-git clone git@github.com:IDEA-Research/Grounded-Segment-Anything.git --recurse-submodules
+# These are comments
+# Also create .virtualenvs for inpainting_sd
+#git clone git@github.com:IDEA-Research/Grounded-Segment-Anything.git --recurse-submodules
+#source /root/.virtualenvs/panoramic_inpainting_sd/bin/activate
 
-# Docker make sure to run commands 
-source /root/.virtualenvs/panoramic_inpainting_sd/bin/activate
+all: system_deps pip_deps set_env install_grounded_segment install_recognize_anything post_install
 
-# 100 percent should do
-apt-get install python3-distutils
-apt-get install python3-dev
-apt-get install libgl1-mesa-glx
+# Install system dependencies
+system_deps:
+	sudo apt-get update
+	sudo apt-get install -y python3-distutils python3-dev libgl1-mesa-glx
 
-# Not sure, test it
-pip install torch
+# Install Python packages
+pip_deps:
+	pip install --upgrade setuptools
+	pip install torch
+	pip install --upgrade diffusers[torch]
+	pip install numpy opencv-python pycocotools matplotlib onnxruntime onnx ipykernel
 
-# Double check all, especially AM_I_DOCKER
-export AM_I_DOCKER=False
-export BUILD_WITH_CUDA=True
-export CUDA_HOME=/usr/local/cuda/
+set_env:
+	export AM_I_DOCKER=False
+	export BUILD_WITH_CUDA=True
+	export CUDA_HOME=/usr/local/cuda/
 
-pip install -e Grounded-Segment-Anything/segment_anything/
-pip install -e Grounded-Segment-Anything/GroundingDINO/
-pip install --upgrade diffusers[torch]
+install_grounded_segment:
+	pip install -e GSAM/segment_anything/
+	pip install -e GSAM/GroundingDINO/
+	cd GSAM/grounded-sam-osx && bash install.sh
 
-# Probably do not need as I already used --recurse-submodules
-#git submodule update --init --recursive
-cd Grounded-Segment-Anything/grounded-sam-osx && bash install.sh
-      
-# cd ../
-git clone https://github.com/xinyu1205/recognize-anything.git
-pip install -r ./recognize-anything/requirements.txt
+install_recognize_anything:
+	git clone https://github.com/xinyu1205/recognize-anything.git || true
+	pip install -r recognize-anything/requirements.txt
+	pip install -e recognize-anything/
+
+post_install:
+	@echo "Installation complete. Adjust environment variables as needed."
+
 # if -e does not work redo setup.cfg
 # [options]
 # packages = find:
@@ -44,9 +52,7 @@ pip install -r ./recognize-anything/requirements.txt
 #     scipy
 #     clip @ git+https://github.com/openai/CLIP.git
 
-pip install -e ./recognize-anything/
-
-pip install opencv-python pycocotools matplotlib onnxruntime onnx ipykernel
+.PHONY: all system_deps pip_deps set_env install_grounded_segment install_recognize_anything post_install
 
 
       
