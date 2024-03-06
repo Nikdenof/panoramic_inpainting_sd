@@ -1,0 +1,3 @@
+[submodule "GSAM"]
+	path = GSAM
+	url = https://github.com/IDEA-Research/Grounded-Segment-Anything.git
