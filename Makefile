@@ -29,6 +29,12 @@ install_grounded_segment:
 	pip install -e GSAM/GroundingDINO/
 	cd GSAM/grounded-sam-osx && bash install.sh
 
+# If there is no GPU for some reason, rebuild dino
+rebuid_dino:
+	pip install torch --upgrade
+	pip install torchvision --upgrade
+	pip install -e GSAM/GroundingDINO/
+
 install_recognize_anything:
 	git clone https://github.com/xinyu1205/recognize-anything.git || true
 	pip install -r recognize-anything/requirements.txt
