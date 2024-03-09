@@ -1,5 +1,6 @@
 import torch
 from huggingface_hub import hf_hub_download
+from GSAM.GroundingDINO.groundingdino.util.inference import load_image
 
 from GSAM.GroundingDINO.groundingdino.models import build_model
 from GSAM.GroundingDINO.groundingdino.util.inference import (
@@ -51,4 +52,37 @@ def detect(
         image_source=image_source, boxes=boxes, logits=logits, phrases=phrases
     )
     annotated_frame = annotated_frame[..., ::-1]
-    return annotated_frame, boxes
+    return annotated_frame, boxes, phrases
+
+
+if __name__ == "__main__":
+    # local_image_path = "/home/nikdenof/Documents/work/panoramic_inpainting_sd/data/raw/vadim_data_v0" \
+    #                    "/1497901838159973177.jpeg"
+    # local_image_path = "/home/nikdenof/Documents/work/panoramic_inpainting_sd/data/raw/vadim_data_v0/130b9o9ixe.jpeg"
+    # local_image_path = "/home/nikdenof/Documents/work/panoramic_inpainting_sd/data/raw/vadim_data_v0/80905tkpdx.jpeg"
+    # local_image_path = "/home/nikdenof/Documents/work/panoramic_inpainting_sd/data/raw/test_images/car_clouds.jpg"
+    local_image_path = "/home/nikdenof/Documents/work/panoramic_inpainting_sd/data/raw/test_images/faces_plates.jpg"
+    image_source, image = load_image(local_image_path)
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    groundingdino_model = get_dino_model(device)
+
+    classes2detect = [
+        "grass",
+        "sky",
+        # "licence_plate",
+        # "person",
+        # "person_face",
+        # "faces",
+        # "physiognomy",
+        # "facial_features",
+        # "facial_expression",
+    ]
+    TEXT_PROMPT = f"{'. '.join(classes2detect)}."
+    annotated_frame, detected_boxes, output_phrases = detect(
+        image, image_source, text_prompt=TEXT_PROMPT, model=groundingdino_model
+    )
+
+
+
+    print()
