@@ -38,7 +38,7 @@ def get_dino_model(device):
 
 
 def detect(
-    image, image_source, text_prompt, model, box_threshold=0.3, text_threshold=0.25
+    image, image_source, text_prompt, model, box_threshold=0.4, text_threshold=0.25
 ):
     boxes, logits, phrases = predict(
         model=model,
@@ -56,12 +56,7 @@ def detect(
 
 
 if __name__ == "__main__":
-    # local_image_path = "/home/nikdenof/Documents/work/panoramic_inpainting_sd/data/raw/vadim_data_v0" \
-    #                    "/1497901838159973177.jpeg"
-    # local_image_path = "/home/nikdenof/Documents/work/panoramic_inpainting_sd/data/raw/vadim_data_v0/130b9o9ixe.jpeg"
-    # local_image_path = "/home/nikdenof/Documents/work/panoramic_inpainting_sd/data/raw/vadim_data_v0/80905tkpdx.jpeg"
-    # local_image_path = "/home/nikdenof/Documents/work/panoramic_inpainting_sd/data/raw/test_images/car_clouds.jpg"
-    local_image_path = "/home/nikdenof/Documents/work/panoramic_inpainting_sd/data/raw/test_images/faces_plates.jpg"
+    local_image_path = "../../data/raw/test_images/faces_plates.jpg"
     image_source, image = load_image(local_image_path)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -70,9 +65,9 @@ if __name__ == "__main__":
     classes2detect = [
         "grass",
         "sky",
-        # "licence_plate",
-        # "person",
-        # "person_face",
+        "licence_plate",
+        "person",
+        "person_face",
         # "faces",
         # "physiognomy",
         # "facial_features",
