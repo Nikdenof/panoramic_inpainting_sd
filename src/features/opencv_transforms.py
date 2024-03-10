@@ -34,11 +34,11 @@ def filter_mask_islands(binary_mask):
     return selected_mask
 
 
-def dilate_mask(mask_in, dilate_option=8, verbose=False):
+def dilate_mask(mask_in, dilate_radius=8, dilate_iterations=5, verbose=False):
     kernel = cv2.getStructuringElement(
-        cv2.MORPH_ELLIPSE, (dilate_option, dilate_option)
+        cv2.MORPH_ELLIPSE, (dilate_radius, dilate_radius)
     )
-    dilated_out = cv2.dilate(mask_in, kernel, iterations=5)
+    dilated_out = cv2.dilate(mask_in, kernel, iterations=dilate_iterations)
     mask_diff = cv2.bitwise_xor(mask_in, dilated_out)
     if verbose:
         area_diff = cv2.countNonZero(mask_diff)
@@ -65,7 +65,7 @@ def mask_pil_preprocess(mask_pil_in, **kwargs):
 def main():
     mask_test = cv2.imread("../../data/raw/test_mask.png", cv2.IMREAD_GRAYSCALE)
     show_rgb_image(mask_test)
-    mask_out = mask_cv2_preprocess(mask_test)
+    mask_out = mask_cv2_preprocess(mask_test, dilate_radius=5)
     mask_diff = cv2.bitwise_xor(mask_out, mask_test)
     show_rgb_image(mask_out)
     show_rgb_image(mask_diff)
