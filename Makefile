@@ -5,7 +5,7 @@ SHELL := /bin/bash
 #git clone git@github.com:IDEA-Research/Grounded-Segment-Anything.git --recurse-submodules
 #source /root/.virtualenvs/panoramic_inpainting_sd/bin/activate
 
-all: system_deps pip_deps set_env install_grounded_segment install_recognize_anything post_install
+all: system_deps pip_deps_cuda_12 set_env install_grounded_segment install_recognize_anything rebuid_dino post_install
 
 # Install system dependencies
 system_deps:
@@ -13,16 +13,23 @@ system_deps:
 	sudo apt-get install -y python3-distutils python3-dev libgl1-mesa-glx
 
 # Install Python packages
-pip_deps:
+pip_deps_cuda_12:
 	pip install --upgrade setuptools
-	pip install torch
+	pip install --upgrade torch
 	pip install --upgrade diffusers[torch]
 	pip install numpy opencv-python pycocotools matplotlib onnxruntime onnx ipykernel
 
+pip_deps_cuda_11_8:
+	pip install --upgrade setuptools
+	pip install --upgrade torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+	pip install --upgrade diffusers[torch]
+	pip install numpy opencv-python pycocotools matplotlib onnxruntime onnx ipykernel
+
+#export CUDA_HOME=/usr/local/cuda/ - check it prior, may be the needed way
 set_env:
-	export AM_I_DOCKER=False
-	export BUILD_WITH_CUDA=True
-	export CUDA_HOME=/usr/local/cuda/
+        export AM_I_DOCKER=False && \
+        export BUILD_WITH_CUDA=True && \
+        export CUDA_HOME=/usr/local/cuda/
 
 install_grounded_segment:
 	pip install -e GSAM/segment_anything/
@@ -38,6 +45,7 @@ rebuid_dino:
 install_recognize_anything:
 	git clone https://github.com/xinyu1205/recognize-anything.git || true
 	pip install -r recognize-anything/requirements.txt
+	pip install --upgrade setuptools
 	pip install -e recognize-anything/
 
 post_install:
