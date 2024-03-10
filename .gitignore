@@ -94,3 +94,5 @@ venv/
 /data/raw/vadim_data_v0/
 /data/raw/vadim_data_v1/
 /data/processed/sky_sd_test_v2/
+/data/raw/
+/data/processed/

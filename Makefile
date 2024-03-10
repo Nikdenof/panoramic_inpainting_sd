@@ -5,7 +5,7 @@ SHELL := /bin/bash
 #git clone git@github.com:IDEA-Research/Grounded-Segment-Anything.git --recurse-submodules
 #source /root/.virtualenvs/panoramic_inpainting_sd/bin/activate
 
-all: system_deps pip_deps_cuda_12 set_env install_grounded_segment install_recognize_anything rebuid_dino post_install
+all: system_deps pip_deps_cuda_12 set_env install_grounded_segment install_recognize_anything rebuid_dino install_project_requirements post_install
 
 # Install system dependencies
 system_deps:
@@ -47,6 +47,9 @@ install_recognize_anything:
 	pip install -r recognize-anything/requirements.txt
 	pip install --upgrade setuptools
 	pip install -e recognize-anything/
+
+install_project_requirements:
+	pip install -r requirements.txt
 
 post_install:
 	@echo "Installation complete. Adjust environment variables as needed."
