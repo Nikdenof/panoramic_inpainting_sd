@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 
@@ -9,29 +10,22 @@ from diffusers import StableDiffusionInpaintPipeline
 from tqdm import tqdm
 
 from GSAM.GroundingDINO.groundingdino.util.inference import load_image
+from src.features.opencv_transforms import mask_pil_preprocess
 from src.models.predict_dino import detect, get_dino_model
 from src.models.predict_sam import get_sam_model, segment
-from src.utils.constants import SD_SEED, DINO2SD_DICT
-from src.features.opencv_transforms import mask_pil_preprocess
+from src.utils.constants import SD_SEED, DINO2SD_DICT, DILATE_RADIUS, DILATE_ITERATION
+
+
+CLASSES2DETECT = ["sky", "grass"]
 
 
 def cv2_display(image_og):
     return cv2.cvtColor(np.array(image_og), cv2.COLOR_BGR2RGB)
 
 
-# def dilate_mask(mask_in):
-#     # Convert the PIL image (mode '1') to a NumPy array
-#     mask_array = np.array(mask_in)
-#
-#     # OpenCV's dilation expects the input array to be of type uint8
-#     mask_array = mask_array.astype(np.uint8) * 255  # Convert to 0 and 255
-#
-#     # Define the structuring element for dilation and apply dilation
-#     kernel = np.ones((8, 8), np.uint8)  # Adjust the kernel size as needed
-#     dilated_mask_array = cv2.dilate(mask_array, kernel, iterations=1)
-#
-#     dilated_in_mask = Image.fromarray(dilated_mask_array).convert("1")
-#     return dilated_in_mask
+def save_dict_to_json(data, filepath):
+    with open(filepath, "w") as json_file:
+        json.dump(data, json_file)
 
 
 def draw_mask(mask, image, random_color=True):
@@ -59,7 +53,6 @@ def generate_image(
     seed,
     device,
     resize_hw=512,
-    dilate_bool=False,
     strength_param=0.8,
     guidance_param=10,
 ):
@@ -68,7 +61,6 @@ def generate_image(
     if resize_hw is not None:
         in_image = in_image.resize((resize_hw, resize_hw))
         in_mask = in_mask.resize((resize_hw, resize_hw))
-
 
     generator = torch.Generator(device).manual_seed(seed)
 
@@ -80,7 +72,7 @@ def generate_image(
         generator=generator,
         strength=strength_param,  # 1 is default
         guidance_scale=guidance_param,  # 7.5 is default
-        padding_mask_crop=32,
+        padding_mask_crop=16,
     )
     result = result.images[0]
 
@@ -101,8 +93,9 @@ def main():
 
     # image_directory = "../../data/raw/vadim_data_v0/"
     image_directory = "../../data/raw/vadim_data_v1/Archive/"
-    out_directory = "../../data/processed/sky_sd_test_v3/"
+    out_directory = "../../data/processed/sky_sd_test_dr3_di5_v1/"
     os.makedirs(out_directory, exist_ok=True)
+    save_dict_to_json(DINO2SD_DICT, os.path.join(out_directory, "params.json"))
 
     for img_name in tqdm(os.listdir(image_directory), desc="Processing images"):
         local_image_path = os.path.join(image_directory, img_name)
@@ -137,8 +130,7 @@ def inpaint_image(
     device,
     prompt_dict,
 ):
-    classes2detect = list(prompt_dict.keys())
-    dino_prompt_in = f"{'. '.join(classes2detect)}."
+    dino_prompt_in = f"{'. '.join(CLASSES2DETECT)}."
     annotated_frame, detected_boxes, detected_classes = detect(
         image, image_source, text_prompt=dino_prompt_in, model=groundingdino_model
     )
@@ -155,18 +147,34 @@ def inpaint_image(
         mask_og = mask_tensor[0].cpu().numpy()
 
         image_mask_pil = Image.fromarray(mask_og)
-        image_mask_pil = mask_pil_preprocess(image_mask_pil)
+        image_mask_pil = mask_pil_preprocess(
+            image_mask_pil,
+            dilate_radius=DILATE_RADIUS,
+            dilate_iterations=DILATE_ITERATION,
+        )
 
         prompt_list = prompt_dict.get(class_detected)
         if prompt_list is None:
             continue
 
-        fill_color = prompt_list[2]
-        img_interim = np.array(image_pil)
+        if class_detected in ["sky"]:
+            fill_color = prompt_list[2]
+            img_interim = np.array(image_pil)
+            # Filling by initial mask
+            img_interim[mask_og] = fill_color
+            image_pil = Image.fromarray(img_interim)
+        elif class_detected in ["grass"]:
+            img_interim = np.array(image_pil)
+            img_colored = img_interim.copy()
+            # img_colored[mask_og] = [0, 255, 0]
+            img_colored[mask_og] = [63, 155, 11]
+            img_out = cv2.addWeighted(
+                img_colored, 0.3, img_interim, 0.7, 0, img_colored
+            )
+            image_pil = Image.fromarray(img_out)
 
-        # Filling by initial mask
-        img_interim[mask_og] = fill_color
-        image_pil = Image.fromarray(img_interim)
+        strength_class = prompt_list[3]
+        guidance_class = prompt_list[4]
 
         image_pil = generate_image(
             in_image=image_pil,
@@ -176,8 +184,8 @@ def inpaint_image(
             pipe=sd_pipe,
             seed=SD_SEED,
             device=device,
-            strength_param=0.8,
-            guidance_param=10,
+            strength_param=strength_class,
+            guidance_param=guidance_class,
         )
         logging.info(f"Iteration {class_detected} finished")
 
