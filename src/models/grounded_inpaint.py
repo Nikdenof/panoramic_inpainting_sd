@@ -6,32 +6,32 @@ import numpy as np
 import torch
 from PIL import Image
 from diffusers import StableDiffusionInpaintPipeline
-import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 from GSAM.GroundingDINO.groundingdino.util.inference import load_image
 from src.models.predict_dino import detect, get_dino_model
-from src.utils.constants import MODEL_URL, MODEL_PATH, SD_SEED, DINO2SD_DICT
 from src.models.predict_sam import get_sam_model, segment
-from tqdm import tqdm
+from src.utils.constants import SD_SEED, DINO2SD_DICT
+from src.features.opencv_transforms import mask_pil_preprocess
 
 
 def cv2_display(image_og):
     return cv2.cvtColor(np.array(image_og), cv2.COLOR_BGR2RGB)
 
 
-def dilate_mask(mask_in):
-    # Convert the PIL image (mode '1') to a NumPy array
-    mask_array = np.array(mask_in)
-
-    # OpenCV's dilation expects the input array to be of type uint8
-    mask_array = mask_array.astype(np.uint8) * 255  # Convert to 0 and 255
-
-    # Define the structuring element for dilation and apply dilation
-    kernel = np.ones((8, 8), np.uint8)  # Adjust the kernel size as needed
-    dilated_mask_array = cv2.dilate(mask_array, kernel, iterations=1)
-
-    dilated_in_mask = Image.fromarray(dilated_mask_array).convert("1")
-    return dilated_in_mask
+# def dilate_mask(mask_in):
+#     # Convert the PIL image (mode '1') to a NumPy array
+#     mask_array = np.array(mask_in)
+#
+#     # OpenCV's dilation expects the input array to be of type uint8
+#     mask_array = mask_array.astype(np.uint8) * 255  # Convert to 0 and 255
+#
+#     # Define the structuring element for dilation and apply dilation
+#     kernel = np.ones((8, 8), np.uint8)  # Adjust the kernel size as needed
+#     dilated_mask_array = cv2.dilate(mask_array, kernel, iterations=1)
+#
+#     dilated_in_mask = Image.fromarray(dilated_mask_array).convert("1")
+#     return dilated_in_mask
 
 
 def draw_mask(mask, image, random_color=True):
@@ -69,8 +69,6 @@ def generate_image(
         in_image = in_image.resize((resize_hw, resize_hw))
         in_mask = in_mask.resize((resize_hw, resize_hw))
 
-    if dilate_bool:
-        in_mask = dilate_mask(in_mask)
 
     generator = torch.Generator(device).manual_seed(seed)
 
@@ -98,13 +96,17 @@ def main():
         "stabilityai/stable-diffusion-2-inpainting",
         torch_dtype=torch.float16,
     ).to(device)
+    # disable the progress bar
+    sd_pipe.set_progress_bar_config(disable=True)
 
-    image_directory = "../../data/raw/vadim_data_v0/"
-    out_directory = "../../data/processed/sky_sd_test/"
+    # image_directory = "../../data/raw/vadim_data_v0/"
+    image_directory = "../../data/raw/vadim_data_v1/Archive/"
+    out_directory = "../../data/processed/sky_sd_test_v3/"
     os.makedirs(out_directory, exist_ok=True)
 
     for img_name in tqdm(os.listdir(image_directory), desc="Processing images"):
         local_image_path = os.path.join(image_directory, img_name)
+        # local_image_path = "../../data/raw/vadim_data_v0/1685684068_klau-club-p-dom-s-gazonom-2.jpeg"
         output_image_path = os.path.join(out_directory, img_name)
 
         image_source, image = load_image(local_image_path)
@@ -149,12 +151,22 @@ def inpaint_image(
 
     # Step 3. Inpainting process
     image_pil = Image.fromarray(image_source)
-    for mask, class_detected in zip(segmented_frame_masks, detected_classes):
-        mask = mask[0].cpu().numpy()
-        image_mask_pil = Image.fromarray(mask)
+    for mask_tensor, class_detected in zip(segmented_frame_masks, detected_classes):
+        mask_og = mask_tensor[0].cpu().numpy()
+
+        image_mask_pil = Image.fromarray(mask_og)
+        image_mask_pil = mask_pil_preprocess(image_mask_pil)
+
         prompt_list = prompt_dict.get(class_detected)
         if prompt_list is None:
             continue
+
+        fill_color = prompt_list[2]
+        img_interim = np.array(image_pil)
+
+        # Filling by initial mask
+        img_interim[mask_og] = fill_color
+        image_pil = Image.fromarray(img_interim)
 
         image_pil = generate_image(
             in_image=image_pil,
